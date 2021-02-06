@@ -64,12 +64,13 @@ impl<'a> Snake<'a> {
 
     fn start(&mut self) {
         while !self.check_game_over() {
-            self.dir = match self.window.getch().unwrap() {
-                Input::Character('w') => SnakeDir::Up,
-                Input::Character('s') => SnakeDir::Down,
-                Input::Character('a') => SnakeDir::Left,
-                Input::Character('d') => SnakeDir::Right,
-                _ => SnakeDir::Right,
+            half_delay(1);
+            self.dir = match self.window.getch() {
+                Some(Input::Character('w')) => SnakeDir::Up,
+                Some(Input::Character('s')) => SnakeDir::Down,
+                Some(Input::Character('a')) => SnakeDir::Left,
+                Some(Input::Character('d')) => SnakeDir::Right,
+                _ => self.dir,
             };
 
             self.mv();
