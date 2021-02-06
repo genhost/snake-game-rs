@@ -15,8 +15,9 @@ fn main() {
         &window,
         DEFAULT_PART_CHAR,
         DEFAULT_SNAKE_SIZE,
+        DEFAULT_APPLE_INCSIZE,
         DEFAULT_SNAKE_DIR,
-        Apple::new(&window, DEFAULT_APPLE_CHAR, 3)
+        Apple::new(&window, DEFAULT_APPLE_CHAR, 3),
     );
 
     start_color();
@@ -44,10 +45,18 @@ struct Snake<'a> {
     parts: Vec<SnakePart>,
     length: usize,
     apple: Apple<'a>,
+    inc_size: usize,
 }
 
 impl<'a> Snake<'a> {
-    fn new(window: &'a Window, form: char, size: usize, dir: SnakeDir, apple: Apple<'a>) -> Self {
+    fn new(
+        window: &'a Window,
+        form: char,
+        size: usize,
+        inc_size: usize,
+        dir: SnakeDir,
+        apple: Apple<'a>,
+    ) -> Self {
         let mut parts: Vec<SnakePart> = Vec::new();
         let window_center = (window.get_max_y() / 2, window.get_max_x() / 2);
         for x_offset in 0..size {
@@ -62,6 +71,7 @@ impl<'a> Snake<'a> {
             parts,
             window,
             apple,
+            inc_size,
             length: size,
         }
     }
@@ -70,18 +80,15 @@ impl<'a> Snake<'a> {
         let mut parts = self.parts.clone();
         parts.reverse();
         self.parts.clear();
-        
+
         for i in 0..self.length {
-            self.parts.push(SnakePart::new(
-                parts[i].y,
-                parts[i].x,
-            ))
+            self.parts.push(SnakePart::new(parts[i].y, parts[i].x))
         }
         self.parts.reverse();
     }
 
     fn start(&mut self) {
-        while !self.check_game_over() {
+        loop {
             self.sync();
             half_delay(1);
             self.dir = match self.window.getch() {
@@ -96,19 +103,30 @@ impl<'a> Snake<'a> {
                 _ => self.dir,
             };
 
+            
             self.check_eaten();
             self.mv();
+            self.redraw();
+            
+            if self.check_game_over() {
+                break;
+            }
+
         }
     }
 
-    fn mv(&mut self) {
-        let mut last_part = self.last_part();
+    fn last_part_mv(&mut self, last_part: &mut SnakePart) {
         match self.dir {
             SnakeDir::Up => last_part.mv(last_part.y - 1, last_part.x),
             SnakeDir::Down => last_part.mv(last_part.y + 1, last_part.x),
             SnakeDir::Left => last_part.mv(last_part.y, last_part.x - 1),
             SnakeDir::Right => last_part.mv(last_part.y, last_part.x + 1),
         }
+    }
+
+    fn mv(&mut self) {
+        let mut last_part = self.last_part();
+        self.last_part_mv(&mut last_part);
         for part in &mut self.parts_without_last() {
             match part.dir {
                 SnakeDir::Up => part.mv(part.y - 1, part.x),
@@ -118,10 +136,24 @@ impl<'a> Snake<'a> {
             }
         }
         self.parts.push(last_part);
-        self.redraw();
     }
 
-    fn check_game_over(&self) -> bool {
+    fn check_game_over(&mut self) -> bool {
+        if self.last_part().y == self.window.get_beg_y() - 1
+            || self.last_part().x == self.window.get_beg_x() - 1
+            || self.last_part().y == self.window.get_max_y()
+            || self.last_part().x == self.window.get_max_x()
+        {
+            return true;
+        } else {
+            let mut last_part = self.last_part().clone();
+            self.last_part_mv(&mut last_part);
+            for part in self.parts_without_last() {
+                if last_part.cmp(&part) {
+                    return true;
+                }
+            }
+        }
         false
     }
 
@@ -130,20 +162,22 @@ impl<'a> Snake<'a> {
     }
 
     fn parts_without_last(&self) -> Vec<SnakePart> {
-        let mut parts: Vec<SnakePart> = Vec::new();
-        for part in &self.parts {
-            parts.push(*part);
-        }
-        parts
+        self.parts[..self.parts.len()].to_vec()
     }
-    
+
     fn redraw(&self) {
         self.window.clear();
         self.apple.spawn();
 
-        self.window.mvaddstr(self.window.get_beg_y(),
+        self.window.mvaddstr(
+            self.window.get_beg_y(),
             self.window.get_beg_x(),
-            format!("Parts Vector: {} | Length: {}", self.parts.len(), self.length).as_str()
+            format!(
+                "Parts Vector: {} | Length: {}",
+                self.parts.len(),
+                self.length
+            )
+            .as_str(),
         );
 
         for part in &self.parts {
@@ -160,7 +194,7 @@ impl<'a> Snake<'a> {
     fn check_eaten(&mut self) {
         if self.last_part().y == self.apple.y && self.last_part().x == self.apple.x {
             self.apple.rand_move();
-            self.inc_size(DEFAULT_APPLE_INCSIZE);
+            self.inc_size(self.inc_size);
         }
     }
 
@@ -203,6 +237,13 @@ impl SnakePart {
         self.y = y;
         self.x = x;
     }
+
+    fn cmp(&self, with: &Self) -> bool {
+        if self.y == with.y && self.x == with.x {
+            return true;
+        }
+        false
+    }
 }
 
 fn snake_color() -> u32 {
@@ -214,7 +255,7 @@ struct Apple<'a> {
     y: i32,
     form: char,
     color: u32,
-    window: &'a Window
+    window: &'a Window,
 }
 
 impl<'a> Apple<'a> {
