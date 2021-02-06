@@ -3,9 +3,11 @@
 use pancurses::*;
 use rand::{thread_rng, Rng};
 
-static DEFAULT_PART_CHAR: char = '#';
-static DEFAULT_SNAKE_SIZE: usize = 10;
 static DEFAULT_SNAKE_DIR: SnakeDir = SnakeDir::Right;
+static DEFAULT_APPLE_INCSIZE: usize = 5;
+static DEFAULT_SNAKE_SIZE: usize = 10;
+static DEFAULT_APPLE_CHAR: char = '#';
+static DEFAULT_PART_CHAR: char = '#';
 
 fn main() {
     let window = initscr();
@@ -14,6 +16,7 @@ fn main() {
         DEFAULT_PART_CHAR,
         DEFAULT_SNAKE_SIZE,
         DEFAULT_SNAKE_DIR,
+        Apple::new(&window, DEFAULT_APPLE_CHAR, 3)
     );
 
     start_color();
@@ -40,10 +43,11 @@ struct Snake<'a> {
     window: &'a Window,
     parts: Vec<SnakePart>,
     length: usize,
+    apple: Apple<'a>,
 }
 
 impl<'a> Snake<'a> {
-    fn new(window: &'a Window, form: char, size: usize, dir: SnakeDir) -> Self {
+    fn new(window: &'a Window, form: char, size: usize, dir: SnakeDir, apple: Apple<'a>) -> Self {
         let mut parts: Vec<SnakePart> = Vec::new();
         let window_center = (window.get_max_y() / 2, window.get_max_x() / 2);
         for x_offset in 0..size {
@@ -57,6 +61,7 @@ impl<'a> Snake<'a> {
             form,
             parts,
             window,
+            apple,
             length: size,
         }
     }
@@ -65,7 +70,7 @@ impl<'a> Snake<'a> {
         let mut parts = self.parts.clone();
         parts.reverse();
         self.parts.clear();
-
+        
         for i in 0..self.length {
             self.parts.push(SnakePart::new(
                 parts[i].y,
@@ -91,17 +96,8 @@ impl<'a> Snake<'a> {
                 _ => self.dir,
             };
 
+            self.check_eaten();
             self.mv();
-
-            for part in &self.parts {
-                let color = snake_color();
-
-                self.window.attron(COLOR_PAIR(color));
-                self.window.mvaddch(part.y, part.x, self.form);
-                self.window.attroff(COLOR_PAIR(color));
-
-                self.window.refresh();
-            }
         }
     }
 
@@ -121,8 +117,8 @@ impl<'a> Snake<'a> {
                 SnakeDir::Right => part.mv(part.y, part.x + 1),
             }
         }
-        self.window.clear();
         self.parts.push(last_part);
+        self.redraw();
     }
 
     fn check_game_over(&self) -> bool {
@@ -139,6 +135,43 @@ impl<'a> Snake<'a> {
             parts.push(*part);
         }
         parts
+    }
+    
+    fn redraw(&self) {
+        self.window.clear();
+        self.apple.spawn();
+
+        self.window.mvaddstr(self.window.get_beg_y(),
+            self.window.get_beg_x(),
+            format!("Parts Vector: {} | Length: {}", self.parts.len(), self.length).as_str()
+        );
+
+        for part in &self.parts {
+            let color = snake_color();
+
+            self.window.attron(COLOR_PAIR(color));
+            self.window.mvaddch(part.y, part.x, self.form);
+            self.window.attroff(COLOR_PAIR(color));
+
+            self.window.refresh();
+        }
+    }
+
+    fn check_eaten(&mut self) {
+        if self.last_part().y == self.apple.y && self.last_part().x == self.apple.x {
+            self.apple.rand_move();
+            self.inc_size(DEFAULT_APPLE_INCSIZE);
+        }
+    }
+
+    fn inc_size(&mut self, size: usize) {
+        for _i in 0..size {
+            self.parts.reverse();
+            let part = self.parts[0].clone();
+            self.parts.reverse();
+            self.parts.push(part);
+            self.length += 1;
+        }
     }
 }
 
@@ -173,6 +206,36 @@ impl SnakePart {
 }
 
 fn snake_color() -> u32 {
-    let mut rng = thread_rng();
-    rng.gen_range(1..=7)
+    thread_rng().gen_range(1..=7)
+}
+
+struct Apple<'a> {
+    x: i32,
+    y: i32,
+    form: char,
+    color: u32,
+    window: &'a Window
+}
+
+impl<'a> Apple<'a> {
+    fn new(window: &'a Window, form: char, color: u32) -> Self {
+        Self {
+            x: thread_rng().gen_range(window.get_beg_x()..window.get_max_x()),
+            y: thread_rng().gen_range(window.get_beg_y()..window.get_max_y()),
+            form,
+            color,
+            window,
+        }
+    }
+
+    fn rand_move(&mut self) {
+        self.x = thread_rng().gen_range(self.window.get_beg_x()..self.window.get_max_x());
+        self.y = thread_rng().gen_range(self.window.get_beg_y()..self.window.get_max_y());
+    }
+
+    fn spawn(&self) {
+        self.window.attron(COLOR_PAIR(self.color));
+        self.window.mvaddch(self.y, self.x, self.form);
+        self.window.attroff(COLOR_PAIR(self.color));
+    }
 }
