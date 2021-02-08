@@ -1,8 +1,8 @@
-use pancurses::*;
 use crate::constants::*;
 use crate::food::Food;
+use crate::snake::{player::SnakePlayer, Snake, SnakeDir, SnakePart};
 use clap::{App, Arg};
-use crate::snake::{Snake, SnakeDir, SnakePart, player::SnakePlayer};
+use pancurses::*;
 
 mod color;
 mod constants;
@@ -128,7 +128,7 @@ fn main() {
     let window = initscr();
 
     let mut food = Food::new(&window, apple_char, apple_color);
-    
+
     let mut snake = SnakePlayer::new(
         &window,
         snake_char,
@@ -137,7 +137,16 @@ fn main() {
         SnakePart::dnew(COORD_CENTER, COORD_CENTER, snake_dir),
         snake_color as u32,
     );
-    
+
+    // let mut snake_bot = SnakeBot::new(
+    //     &window,
+    //     snake_char,
+    //     snake_size,
+    //     apple_incsize,
+    //     SnakePart::dnew(10, COORD_CENTER, snake_dir),
+    //     COLOR_PAIR_RED as u32,
+    // );
+
     noecho();
     curs_set(0);
     window.keypad(true);
@@ -153,10 +162,10 @@ fn main() {
             );
         }
 
+        // snake_bot.start(&mut food);
         snake.start(&mut food);
         food.spawn();
-
     }
-    
+
     endwin();
 }

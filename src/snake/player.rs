@@ -1,6 +1,6 @@
+use super::{Snake, SnakeDir, SnakePart, Window};
 use crate::constants::COORD_CENTER;
 use pancurses::{half_delay, Input};
-use super::{Snake, SnakeDir, SnakePart, Window};
 
 pub struct SnakePlayer<'a> {
     form: char,
@@ -24,16 +24,19 @@ impl<'a> SnakePlayer<'a> {
     ) -> Self {
         let mut parts: Vec<SnakePart> = Vec::new();
         let offsets = (
-            if pos.y == COORD_CENTER { screen.get_max_y() / 2 }
-            else { pos.y },
-            if pos.x == COORD_CENTER { screen.get_max_x() / 2 - size as i32 }
-            else { pos.x },
+            if pos.y == COORD_CENTER {
+                screen.get_max_y() / 2
+            } else {
+                pos.y
+            },
+            if pos.x == COORD_CENTER {
+                screen.get_max_x() / 2 - size as i32
+            } else {
+                pos.x
+            },
         );
         for x_offset in 0..size {
-            parts.push(SnakePart::new(
-                offsets.0,
-                offsets.1 + x_offset as i32,
-            ))
+            parts.push(SnakePart::new(offsets.0, offsets.1 + x_offset as i32))
         }
         if let SnakeDir::Left = pos.dir {
             parts.reverse()

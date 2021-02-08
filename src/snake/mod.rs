@@ -1,18 +1,21 @@
 #![allow(dead_code)]
 
-use crate::Food;
 use crate::color;
-use crate::constants::{DEFAULT_SNAKE_DIR};
+use crate::constants::DEFAULT_SNAKE_DIR;
+use crate::Food;
 use pancurses::{Window, COLOR_PAIR};
 
+// pub mod bot;
 pub mod player;
-pub mod bot;
 
 pub trait Snake<'a> {
     // starts the snake moving, redrawing itself etc
     // should run in a common loop
     fn start(&mut self, food: &mut Food) {
-        if !self.alive() { return }
+        if !self.alive() {
+            self.death();
+            return;
+        }
         self.ctrls();
         self.mv();
         self.draw();
@@ -65,14 +68,20 @@ pub trait Snake<'a> {
     }
 
     // redraws all game data on the screen
-    fn draw(&self) {
+    fn draw(&mut self) {
         for part in self.parts() {
-            self.screen().mvaddch(self.parts()[0].y, self.parts()[0].x, ' ');
+            self.screen().mvaddch(part.y, part.x + 1, ' ');
+            self.screen().mvaddch(part.y, part.x - 1, ' ');
+            self.screen().mvaddch(part.y + 1, part.x, ' ');
+            self.screen().mvaddch(part.y - 1, part.x, ' ');
+        }
+
+        for part in self.parts() {
             let color = match self.color() {
                 9 => color::rand_color(),
                 _ => self.color(),
             };
-            
+
             self.screen().attron(COLOR_PAIR(color));
             self.screen().mvaddch(part.y, part.x, self.form());
             self.screen().attroff(COLOR_PAIR(color));
@@ -88,6 +97,12 @@ pub trait Snake<'a> {
             food.rand_move();
             self.inc_size(self.incval());
             self.score_inc(1);
+        }
+    }
+
+    fn death(&mut self) {
+        for part in self.parts() {
+            self.screen().mvaddch(part.y, part.x, ' ');
         }
     }
 
@@ -139,7 +154,7 @@ pub trait Snake<'a> {
     fn parts_mut(&mut self) -> &mut Vec<SnakePart>;
 }
 
-#[derive(Clone, Copy, std::cmp::PartialEq)]
+#[derive(Clone, Copy, Debug, std::cmp::PartialEq)]
 pub enum SnakeDir {
     Up,
     Down,
@@ -156,11 +171,7 @@ pub struct SnakePart {
 
 impl SnakePart {
     pub fn dnew(y: i32, x: i32, dir: SnakeDir) -> Self {
-        Self {
-            x,
-            y,
-            dir,
-        }
+        Self { x, y, dir }
     }
 
     fn new(y: i32, x: i32) -> Self {
